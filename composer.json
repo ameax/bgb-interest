@@ -1,7 +1,7 @@
 {
-    "name": "nunomaduro/skeleton-php",
-    "description": "A skeleton repository for my packages",
-    "keywords": ["php", "skeleton", "package"],
+    "name": "ameax/bgb-interest",
+    "description": "BGB Verzugszinsen calculator (PHP 7.4+ compatible)",
+    "keywords": ["php", "bgb", "verzugszinsen", "interest", "calculator"],
     "license": "MIT",
     "authors": [
         {
@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "php": "^8.4.0"
+        "php": "^7.4 || ^8.0"
     },
     "require-dev": {
         "laravel/pint": "^1.24.0",
@@ -23,7 +23,7 @@
     },
     "autoload": {
         "psr-4": {
-            "NunoMaduro\\SkeletonPhp\\": "src/"
+            "Ameax\\BgbInterest\\": "src/"
         }
     },
     "autoload-dev": {
