@@ -34,6 +34,7 @@ class BgbInterest
     {
         $this->config = $config ?? new Config;
         $this->loadBaseRates();
+        $this->refreshCacheIfNeeded();
     }
 
     /**
@@ -252,5 +253,45 @@ class BgbInterest
         /** @var array<string, float> $validatedRates */
         $validatedRates = $data['data'];
         $this->baseRates = $validatedRates;
+    }
+
+    /**
+     * Check if cache is older than 1 month and refresh if needed
+     * Falls back to old cache if refresh fails
+     */
+    private function refreshCacheIfNeeded(): void
+    {
+        $cacheFile = $this->config->getCacheDirectory().DIRECTORY_SEPARATOR.'base_rates.json';
+
+        if (! file_exists($cacheFile)) {
+            return;
+        }
+
+        $content = @file_get_contents($cacheFile);
+        if ($content === false) {
+            return;
+        }
+
+        $data = json_decode($content, true);
+        if (! is_array($data) || ! isset($data['metadata']) || ! is_array($data['metadata']) || ! isset($data['metadata']['last_updated']) || ! is_string($data['metadata']['last_updated'])) {
+            return;
+        }
+
+        try {
+            $lastUpdated = new DateTime($data['metadata']['last_updated']);
+            $oneMonthAgo = new DateTime('-1 month');
+
+            if ($lastUpdated < $oneMonthAgo) {
+                // Cache is older than 1 month, try to refresh
+                $provider = new BaseRateProvider($this->config->getCacheDirectory());
+                $newRates = $provider->updateCache();
+
+                // Reload the newly cached rates
+                $this->baseRates = $newRates;
+            }
+        } catch (\Exception $e) {
+            // If refresh fails, continue with existing cache
+            // The existing rates are already loaded in loadBaseRates()
+        }
     }
 }
