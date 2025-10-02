@@ -1,12 +1,23 @@
 {
     "name": "ameax/bgb-interest",
-    "description": "BGB Verzugszinsen calculator (PHP 7.4+ compatible)",
-    "keywords": ["php", "bgb", "verzugszinsen", "interest", "calculator"],
+    "description": "Calculate default interest (Verzugszinsen) according to German Civil Code (BGB) §288. Framework-agnostic, PHP 7.4+ compatible with automatic base rate updates from Bundesbank.",
+    "keywords": [
+        "php",
+        "bgb",
+        "verzugszinsen",
+        "default-interest",
+        "interest-calculator",
+        "germany",
+        "bundesbank",
+        "base-rate"
+    ],
+    "type": "library",
     "license": "MIT",
     "authors": [
         {
-            "name": "Nuno Maduro",
-            "email": "enunomaduro@gmail.com"
+            "name": "Michael Schmidt",
+            "email": "69188126+ms-aranes@users.noreply.github.com",
+            "role": "Developer"
         }
     ],
     "require": {
