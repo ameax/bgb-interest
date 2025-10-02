@@ -25,6 +25,7 @@ A PHP library for calculating default interest (Verzugszinsen) according to Germ
 - Configurable cache directory
 - Optional calendar year breakdown
 - Customizable surcharge rates
+- Automatic cache refresh (monthly check)
 
 ## Requirements
 
@@ -121,9 +122,18 @@ $config = new Config(
 );
 ```
 
-### Update Base Rates Periodically
+### Automatic Cache Refresh
 
-The Bundesbank updates base rates semi-annually (January & July). Update your cache:
+The calculator automatically checks the cache age when instantiated. If the cache is older than 1 month, it attempts to refresh from the Bundesbank API. If the refresh fails, it gracefully falls back to the existing cache.
+
+```php
+// Cache is automatically refreshed if older than 1 month
+$calculator = new BgbInterest($config);
+```
+
+### Manual Cache Update
+
+You can also manually update the cache:
 
 ```php
 $provider = new BaseRateProvider('./cache');
@@ -134,6 +144,8 @@ $cacheFile = $provider->getCacheFilePath();
 $data = json_decode(file_get_contents($cacheFile), true);
 echo "Last updated: {$data['metadata']['last_updated']}\n";
 ```
+
+**Note:** The Bundesbank updates base rates semi-annually (January & July).
 
 ## Legal Information
 
@@ -204,6 +216,7 @@ Eine PHP-Bibliothek zur Berechnung von Verzugszinsen gemäß BGB §288.
 - Konfigurierbares Cache-Verzeichnis
 - Optional: Aufteilung nach Kalenderjahren
 - Anpassbare Aufschlagsätze
+- Automatische Cache-Aktualisierung (monatliche Prüfung)
 
 ## Voraussetzungen
 
@@ -300,9 +313,18 @@ $config = new Config(
 );
 ```
 
-### Basiszinssätze aktualisieren
+### Automatische Cache-Aktualisierung
 
-Die Bundesbank aktualisiert die Basiszinssätze halbjährlich (Januar & Juli). Cache aktualisieren:
+Der Calculator prüft automatisch das Cache-Alter bei der Initialisierung. Wenn der Cache älter als 1 Monat ist, wird versucht, die Daten von der Bundesbank API zu aktualisieren. Bei Fehlern wird automatisch auf den vorhandenen Cache zurückgegriffen.
+
+```php
+// Cache wird automatisch aktualisiert, wenn älter als 1 Monat
+$calculator = new BgbInterest($config);
+```
+
+### Manuelle Cache-Aktualisierung
+
+Sie können den Cache auch manuell aktualisieren:
 
 ```php
 $provider = new BaseRateProvider('./cache');
@@ -313,6 +335,8 @@ $cacheFile = $provider->getCacheFilePath();
 $data = json_decode(file_get_contents($cacheFile), true);
 echo "Zuletzt aktualisiert: {$data['metadata']['last_updated']}\n";
 ```
+
+**Hinweis:** Die Bundesbank aktualisiert die Basiszinssätze halbjährlich (Januar & Juli).
 
 ## Rechtliche Informationen
 
