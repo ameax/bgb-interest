@@ -226,3 +226,256 @@ it('calculates total interest as sum of all periods', function () {
 
     expect($result['total_interest'])->toBe(round($manualSum, 2));
 });
+
+it('calculates interest with partial payments correctly', function () {
+    $config = new Config($this->tempDir);
+    $calculator = new BgbInterest($config);
+
+    $partialPayments = [
+        [
+            'date' => new DateTime('2023-04-01'),
+            'amount' => 3000.00,
+        ],
+    ];
+
+    $result = $calculator->calculateWithPartialPayments(
+        10000.00,
+        new DateTime('2023-01-01'),
+        new DateTime('2023-07-01'),
+        false, // Business
+        $partialPayments
+    );
+
+    expect($result)->toHaveKey('partial_payments')
+        ->and($result['partial_payments'])->toHaveCount(1)
+        ->and($result['partial_payments'][0]['date'])->toBe('2023-04-01')
+        ->and($result['partial_payments'][0]['amount'])->toBe(3000.00);
+
+    // Should have at least 2 periods (before and after payment)
+    expect($result['periods'])->toBeArray()
+        ->and(count($result['periods']))->toBeGreaterThanOrEqual(2);
+
+    // First period should have full principal
+    expect($result['periods'][0]['principal'])->toBe(10000.00);
+
+    // Find period with partial payment
+    $hasPaymentPeriod = false;
+    foreach ($result['periods'] as $period) {
+        if (isset($period['partial_payment'])) {
+            expect($period['partial_payment']['amount'])->toBe(3000.00);
+            $hasPaymentPeriod = true;
+        }
+    }
+    expect($hasPaymentPeriod)->toBeTrue();
+});
+
+it('reduces principal after partial payment', function () {
+    $config = new Config($this->tempDir);
+    $calculator = new BgbInterest($config);
+
+    $partialPayments = [
+        [
+            'date' => new DateTime('2023-04-01'),
+            'amount' => 3000.00,
+        ],
+    ];
+
+    $result = $calculator->calculateWithPartialPayments(
+        10000.00,
+        new DateTime('2023-01-01'),
+        new DateTime('2023-07-01'),
+        false,
+        $partialPayments
+    );
+
+    // Find the period after the payment
+    $foundReducedPrincipal = false;
+    foreach ($result['periods'] as $period) {
+        if ($period['from'] > '2023-04-01') {
+            expect($period['principal'])->toBe(7000.00);
+            $foundReducedPrincipal = true;
+            break;
+        }
+    }
+
+    expect($foundReducedPrincipal)->toBeTrue();
+});
+
+it('handles multiple partial payments', function () {
+    $config = new Config($this->tempDir);
+    $calculator = new BgbInterest($config);
+
+    $partialPayments = [
+        [
+            'date' => new DateTime('2023-03-01'),
+            'amount' => 2000.00,
+        ],
+        [
+            'date' => new DateTime('2023-05-01'),
+            'amount' => 3000.00,
+        ],
+    ];
+
+    $result = $calculator->calculateWithPartialPayments(
+        10000.00,
+        new DateTime('2023-01-01'),
+        new DateTime('2023-07-01'),
+        false,
+        $partialPayments
+    );
+
+    expect($result['partial_payments'])->toHaveCount(2);
+
+    // Check that principal reduces correctly
+    $principals = [];
+    foreach ($result['periods'] as $period) {
+        $principals[] = $period['principal'];
+    }
+
+    expect($principals)->toContain(10000.00) // Initial
+        ->and($principals)->toContain(8000.00) // After first payment
+        ->and($principals)->toContain(5000.00); // After second payment
+});
+
+it('calculates less interest with partial payments than without', function () {
+    $config = new Config($this->tempDir);
+    $calculator = new BgbInterest($config);
+
+    $partialPayments = [
+        [
+            'date' => new DateTime('2023-04-01'),
+            'amount' => 5000.00,
+        ],
+    ];
+
+    $withPayments = $calculator->calculateWithPartialPayments(
+        10000.00,
+        new DateTime('2023-01-01'),
+        new DateTime('2023-07-01'),
+        false,
+        $partialPayments
+    );
+
+    $withoutPayments = $calculator->calculate(
+        10000.00,
+        new DateTime('2023-01-01'),
+        new DateTime('2023-07-01'),
+        false
+    );
+
+    expect($withPayments['total_interest'])->toBeLessThan($withoutPayments['total_interest']);
+});
+
+it('ignores partial payments outside the interest period', function () {
+    $config = new Config($this->tempDir);
+    $calculator = new BgbInterest($config);
+
+    $partialPayments = [
+        [
+            'date' => new DateTime('2022-12-01'), // Before due date
+            'amount' => 3000.00,
+        ],
+        [
+            'date' => new DateTime('2023-08-01'), // After payment date
+            'amount' => 2000.00,
+        ],
+    ];
+
+    $result = $calculator->calculateWithPartialPayments(
+        10000.00,
+        new DateTime('2023-01-01'),
+        new DateTime('2023-07-01'),
+        false,
+        $partialPayments
+    );
+
+    expect($result['partial_payments'])->toBeEmpty();
+});
+
+it('validates partial payment format', function () {
+    $config = new Config($this->tempDir);
+    $calculator = new BgbInterest($config);
+
+    $partialPayments = [
+        [
+            'invalid' => 'format',
+        ],
+    ];
+
+    $calculator->calculateWithPartialPayments(
+        10000.00,
+        new DateTime('2023-01-01'),
+        new DateTime('2023-07-01'),
+        false,
+        $partialPayments
+    );
+})->throws(RuntimeException::class, 'Invalid partial payment format');
+
+it('validates partial payment date type', function () {
+    $config = new Config($this->tempDir);
+    $calculator = new BgbInterest($config);
+
+    $partialPayments = [
+        [
+            'date' => '2023-04-01', // String instead of DateTime
+            'amount' => 3000.00,
+        ],
+    ];
+
+    $calculator->calculateWithPartialPayments(
+        10000.00,
+        new DateTime('2023-01-01'),
+        new DateTime('2023-07-01'),
+        false,
+        $partialPayments
+    );
+})->throws(RuntimeException::class, 'Partial payment date must be a DateTime object');
+
+it('validates partial payment amount', function () {
+    $config = new Config($this->tempDir);
+    $calculator = new BgbInterest($config);
+
+    $partialPayments = [
+        [
+            'date' => new DateTime('2023-04-01'),
+            'amount' => -1000.00,
+        ],
+    ];
+
+    $calculator->calculateWithPartialPayments(
+        10000.00,
+        new DateTime('2023-01-01'),
+        new DateTime('2023-07-01'),
+        false,
+        $partialPayments
+    );
+})->throws(RuntimeException::class, 'Partial payment amount must be greater than zero');
+
+it('sorts partial payments chronologically', function () {
+    $config = new Config($this->tempDir);
+    $calculator = new BgbInterest($config);
+
+    // Provide payments in reverse order
+    $partialPayments = [
+        [
+            'date' => new DateTime('2023-05-01'),
+            'amount' => 3000.00,
+        ],
+        [
+            'date' => new DateTime('2023-03-01'),
+            'amount' => 2000.00,
+        ],
+    ];
+
+    $result = $calculator->calculateWithPartialPayments(
+        10000.00,
+        new DateTime('2023-01-01'),
+        new DateTime('2023-07-01'),
+        false,
+        $partialPayments
+    );
+
+    // Check that payments are sorted in result
+    expect($result['partial_payments'][0]['date'])->toBe('2023-03-01')
+        ->and($result['partial_payments'][1]['date'])->toBe('2023-05-01');
+});

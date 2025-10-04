@@ -112,6 +112,43 @@ $result = $calculator->calculate(
 );
 ```
 
+### Partial Payments
+
+Calculate interest with partial payments that reduce the principal amount:
+
+```php
+$partialPayments = [
+    [
+        'date' => new DateTime('2023-06-01'),
+        'amount' => 3000.00,
+    ],
+    [
+        'date' => new DateTime('2023-10-15'),
+        'amount' => 2000.00,
+    ],
+];
+
+$result = $calculator->calculateWithPartialPayments(
+    10000.00,                       // Initial amount
+    new DateTime('2023-01-15'),     // Due date
+    new DateTime('2024-01-15'),     // Payment date
+    false,                          // Business transaction
+    $partialPayments                // Array of partial payments
+);
+
+// Result includes partial payments and reduced principal per period
+echo "Total interest: {$result['total_interest']} EUR\n";
+echo "Partial payments: " . count($result['partial_payments']) . "\n";
+
+// Each period shows the principal amount used for calculation
+foreach ($result['periods'] as $period) {
+    echo "Principal: {$period['principal']} EUR\n";
+    if (isset($period['partial_payment'])) {
+        echo "Payment: {$period['partial_payment']['amount']} EUR on {$period['partial_payment']['date']}\n";
+    }
+}
+```
+
 ### Custom Configuration
 
 ```php
@@ -166,10 +203,15 @@ See the `examples/` directory for complete working examples:
 - **fetch-base-rates.php** - Fetching and caching base rates
 - **calculate-interest.php** - Various calculation scenarios
 - **detailed-calculation.php** - Detailed breakdown with all periods
+- **partial-payments.php** - Calculate interest with partial payments
+- **simple-partial-payment.php** - Simple example for manual verification
+- **show-return-value.php** - Shows the complete return array structure
 
 Run examples:
 ```bash
 php examples/detailed-calculation.php
+php examples/partial-payments.php
+php examples/simple-partial-payment.php
 ```
 
 ## Development
@@ -303,6 +345,43 @@ $result = $calculator->calculate(
 );
 ```
 
+### Teilzahlungen
+
+Berechnung mit Teilzahlungen, die den Hauptbetrag reduzieren:
+
+```php
+$partialPayments = [
+    [
+        'date' => new DateTime('2023-06-01'),
+        'amount' => 3000.00,
+    ],
+    [
+        'date' => new DateTime('2023-10-15'),
+        'amount' => 2000.00,
+    ],
+];
+
+$result = $calculator->calculateWithPartialPayments(
+    10000.00,                       // Ursprünglicher Betrag
+    new DateTime('2023-01-15'),     // Fälligkeitsdatum
+    new DateTime('2024-01-15'),     // Zahlungsdatum
+    false,                          // Unternehmer
+    $partialPayments                // Array mit Teilzahlungen
+);
+
+// Ergebnis enthält Teilzahlungen und reduzierten Hauptbetrag pro Periode
+echo "Verzugszinsen: {$result['total_interest']} EUR\n";
+echo "Teilzahlungen: " . count($result['partial_payments']) . "\n";
+
+// Jede Periode zeigt den für die Berechnung verwendeten Hauptbetrag
+foreach ($result['periods'] as $period) {
+    echo "Hauptbetrag: {$period['principal']} EUR\n";
+    if (isset($period['partial_payment'])) {
+        echo "Zahlung: {$period['partial_payment']['amount']} EUR am {$period['partial_payment']['date']}\n";
+    }
+}
+```
+
 ### Eigene Konfiguration
 
 ```php
@@ -357,10 +436,15 @@ Siehe `examples/` Verzeichnis für vollständige Beispiele:
 - **fetch-base-rates.php** - Basiszinssätze abrufen und cachen
 - **calculate-interest.php** - Verschiedene Berechnungsszenarien
 - **detailed-calculation.php** - Detaillierte Aufschlüsselung mit allen Perioden
+- **partial-payments.php** - Berechnung mit Teilzahlungen
+- **simple-partial-payment.php** - Einfaches Beispiel zum Nachrechnen
+- **show-return-value.php** - Zeigt die komplette Rückgabe-Array-Struktur
 
 Beispiele ausführen:
 ```bash
 php examples/detailed-calculation.php
+php examples/partial-payments.php
+php examples/simple-partial-payment.php
 ```
 
 ## Berechnung erklärt
