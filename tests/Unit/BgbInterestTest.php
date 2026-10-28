@@ -46,9 +46,10 @@ it('calculates interest for consumer correctly', function () {
         ->and($result['is_consumer'])->toBeTrue()
         ->and($result['total_days'])->toBe(181);
 
-    // Base rate 1.62% + 5% = 6.62%
-    // (10000 * 6.62 * 181) / 36500 = 328.28
-    expect($result['total_interest'])->toBe(328.28);
+    // 02.01.-30.06.: 180 days at 1.62% + 5% = 6.62%
+    // 01.07.: 1 day at 3.12% + 5% = 8.12% (new base rate from 1 July)
+    // 10000 * (6.62 * 180 + 8.12 * 1) / 36500 = 328.69
+    expect($result['total_interest'])->toBe(328.69);
 });
 
 it('calculates interest for business correctly', function () {
@@ -64,9 +65,8 @@ it('calculates interest for business correctly', function () {
 
     expect($result['is_consumer'])->toBeFalse();
 
-    // Base rate 1.62% + 9% = 10.62%
-    // (10000 * 10.62 * 181) / 36500 = 526.64
-    expect($result['total_interest'])->toBe(526.64);
+    // 10000 * (10.62 * 180 + 12.12 * 1) / 36500 = 527.05
+    expect($result['total_interest'])->toBe(527.05);
 });
 
 it('calculates interest across multiple rate periods', function () {
@@ -80,15 +80,44 @@ it('calculates interest across multiple rate periods', function () {
         true
     );
 
-    expect($result['periods'])->toHaveCount(2)
-        ->and($result['periods'][0]['from'])->toBe('2023-01-01')
-        ->and($result['periods'][0]['to'])->toBe('2023-07-01')
+    // Periods list the interest days inclusive: the due date itself is not
+    // counted, each new base rate applies from 1 January / 1 July.
+    expect($result['periods'])->toHaveCount(3)
+        ->and($result['periods'][0]['from'])->toBe('2023-01-02')
+        ->and($result['periods'][0]['to'])->toBe('2023-06-30')
+        ->and($result['periods'][0]['days'])->toBe(180)
         ->and($result['periods'][0]['base_rate'])->toBe(1.62)
         ->and(round($result['periods'][0]['interest_rate'], 2))->toBe(6.62)
-        ->and($result['periods'][1]['from'])->toBe('2023-07-02')
-        ->and($result['periods'][1]['to'])->toBe('2024-01-01')
+        ->and($result['periods'][1]['from'])->toBe('2023-07-01')
+        ->and($result['periods'][1]['to'])->toBe('2023-12-31')
+        ->and($result['periods'][1]['days'])->toBe(184)
         ->and($result['periods'][1]['base_rate'])->toBe(3.12)
-        ->and(round($result['periods'][1]['interest_rate'], 2))->toBe(8.12);
+        ->and(round($result['periods'][1]['interest_rate'], 2))->toBe(8.12)
+        ->and($result['periods'][2]['from'])->toBe('2024-01-01')
+        ->and($result['periods'][2]['to'])->toBe('2024-01-01')
+        ->and($result['periods'][2]['days'])->toBe(1)
+        ->and($result['periods'][2]['base_rate'])->toBe(3.62);
+});
+
+it('counts every day once across rate changes, year splits and partial payments', function () {
+    $config = new Config($this->tempDir);
+    $calculator = new BgbInterest($config);
+
+    $cases = [
+        $calculator->calculate(1000.00, new DateTime('2023-06-01'), new DateTime('2023-07-31'), false),
+        $calculator->calculate(1000.00, new DateTime('2023-03-15'), new DateTime('2024-09-10'), true, true),
+        $calculator->calculateWithPartialPayments(1000.00, new DateTime('2023-05-01'), new DateTime('2023-10-01'), false, [
+            ['date' => new DateTime('2023-06-15'), 'amount' => 300.00],
+            ['date' => new DateTime('2023-07-01'), 'amount' => 200.00],
+        ]),
+    ];
+
+    foreach ($cases as $result) {
+        expect(array_sum(array_column($result['periods'], 'days')))->toBe($result['total_days']);
+    }
+
+    // Due 01.06.2023, paid 31.07.: 02.06.-30.06. 29 days at 1.62%, July 31 days at 3.12%, both + 9%
+    expect($cases[0]['total_interest'])->toBe(round(1000 * (10.62 * 29 + 12.12 * 31) / 36500, 2));
 });
 
 it('returns zero interest when payment date is before due date', function () {

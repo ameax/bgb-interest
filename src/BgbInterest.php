@@ -161,9 +161,14 @@ class BgbInterest
         $currentPrincipal = $initialAmount;
         $paymentIndex = 0;
 
+        // Day counting excludes the start date and includes the end date
+        // (diff in days). A period covers the days after $currentStart up to and
+        // including $periodEnd, so the next period starts at $periodEnd and the
+        // rate is the one valid on the first counted day.
         while ($currentStart < $endDate) {
-            $baseRate = $this->getBaseRateForDate($currentStart);
-            $nextChangeDate = $this->getNextRateChangeDate($currentStart, $endDate);
+            $firstDay = (clone $currentStart)->add(new DateInterval('P1D'));
+            $baseRate = $this->getBaseRateForDate($firstDay);
+            $nextChangeDate = $this->getNextRateChangeDate($firstDay, $endDate);
 
             // Check if there's a partial payment in this period
             $nextPaymentDate = null;
@@ -173,7 +178,7 @@ class BgbInterest
 
             // If split by year is enabled, check if we need to split at year boundary
             if ($splitByYear) {
-                $yearEnd = new DateTime($currentStart->format('Y').'-12-31 23:59:59');
+                $yearEnd = new DateTime($firstDay->format('Y').'-12-31');
                 if ($yearEnd < $nextChangeDate && $yearEnd < $endDate) {
                     $nextChangeDate = $yearEnd;
                 }
@@ -194,7 +199,7 @@ class BgbInterest
                 $interest = ($currentPrincipal * $interestRate * $days) / (100 * 365);
 
                 $period = [
-                    'from' => $currentStart->format('Y-m-d'),
+                    'from' => $firstDay->format('Y-m-d'),
                     'to' => $periodEnd->format('Y-m-d'),
                     'days' => $days,
                     'base_rate' => $baseRate,
@@ -218,7 +223,6 @@ class BgbInterest
             }
 
             $currentStart = clone $periodEnd;
-            $currentStart->add(new DateInterval('P1D'));
         }
 
         return $periods;
@@ -264,9 +268,11 @@ class BgbInterest
 
         foreach ($this->baseRates as $rateDate => $rate) {
             if ($rateDate > $currentStr) {
-                // Parse the rate date (YYYY-MM) and create DateTime for first day of that month
+                // The new rate applies from the first day of that month, so the
+                // current period ends on the day before
                 $parts = explode('-', $rateDate);
                 $nextDate = new DateTime($parts[0].'-'.$parts[1].'-01');
+                $nextDate->sub(new DateInterval('P1D'));
                 break;
             }
         }
